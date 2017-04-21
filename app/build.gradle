@@ -72,6 +72,7 @@ def addBuildNum() {
 
 /**
  *从../signingfiles/keystore.properties下读取签名文件的位置和密码
+ *文件的位置可以根据实际情况配置，放入本地或者代码里，以及是否在版本控制中
  *如果没有相关文件或者参数不对将抛出异常
  */
 def setSigningProperties(){
@@ -109,12 +110,17 @@ android {
 
     signingConfigs {
         release {
-            //这里设置文件签名相关参数宏
+            //配置签名两种方式
+
+            //1.自己读取签名配置
+            setSigningProperties()
+
+            //2.这里设置文件签名相关参数宏
             //在工程根目录或者~/.gradle/下的gradle.properties属性文件中定义
-            storeFile file(MYAPP_RELEASE_STORE_FILE)
-            storePassword MYAPP_RELEASE_STORE_PASSWORD
-            keyAlias MYAPP_RELEASE_KEY_ALIAS
-            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+            //storeFile file(MYAPP_RELEASE_STORE_FILE)
+            //storePassword MYAPP_RELEASE_STORE_PASSWORD
+            //keyAlias MYAPP_RELEASE_KEY_ALIAS
+            //keyPassword MYAPP_RELEASE_KEY_PASSWORD
         }
     }
 
