@@ -1,1 +1,1 @@
-include ':app', ':l_pgyupdate', ':myapplication'
+include ':app'

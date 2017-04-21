@@ -7,7 +7,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 
-import com.example.l_pgyupdate.PgyManager;
 
 public class MainActivity extends AppCompatActivity {
     String mAppId;
