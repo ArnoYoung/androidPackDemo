@@ -1,0 +1,218 @@
+apply plugin: 'com.android.application'
+
+//版本号，versionName的一部分
+def versionNum = "v1.0.1"
+//工程名，影响到输出的apk文件名
+def projectName = 'androidpack'
+
+//自定义应用名字，
+//def appNameBuild = '自动打包RN'
+//是否混淆
+def enableProguardInReleaseBuilds = false
+
+
+/**
+ * @return 现在时间字符串
+ */
+def releaseTime() {
+    return new Date().format("yyyyMMddhhmm", TimeZone.getTimeZone("UTC"))
+}
+
+/**
+ * 定义versionName
+ * @param _versionNum
+ * @return 返回versionName
+ */
+def getVersionName(_versionNum) {
+    return "${_versionNum}.${getBuildNum()}"
+}
+
+/**
+ * @return build次数
+ */
+def getBuildNum() {
+    def buildFile = file('../gradle.properties')
+
+    if (buildFile.exists()) {
+        def Properties buildPop = new Properties()
+        buildPop.load(new FileInputStream(buildFile))
+        def buildNum = buildPop['build_num'].toInteger()
+        println('Current version code is ' + buildNum.toString())
+        return buildNum
+    } else {
+        throw new GradleException("Could not find " + buildFile.absolutePath)
+    }
+}
+
+//加一标志，确保一次编译不管生成几个apk，都只增加一
+def add_flage = false
+/**
+ *非'Debug'编译方式，自增
+ */
+def addBuildNum() {
+    def runTasks = gradle.startParameter.taskNames.toString()
+    println("runtasks!: " + runTasks)
+    if ((runTasks.contains('Debug'))) {
+        return
+    }
+
+    def File buildFile = file('../gradle.properties')
+    if (buildFile.exists()) {
+        def Properties versionProps = new Properties()
+        versionProps.load(new FileInputStream(buildFile))
+        def buildNum = versionProps['build_num'].toInteger()
+        buildNum++
+        versionProps['build_num'] = buildNum.toString()
+        versionProps.store(buildFile.newWriter(), null)
+        println('Updated build number to ' + buildNum.toString())
+    } else {
+        throw new GradleException("Could not find " + buildFile.absolutePath)
+    }
+}
+
+/**
+ *从../signingfiles/keystore.properties下读取签名文件的位置和密码
+ *如果没有相关文件或者参数不对将抛出异常
+ */
+def setSigningProperties(){
+    def propFile = file('../signingfiles/keystore.properties')
+    if (propFile.canRead()){
+        def Properties props = new Properties()
+        props.load(new FileInputStream(propFile))
+        if (props!=null && props.containsKey('STORE_FILE') && props.containsKey('STORE_PASSWORD') &&props.containsKey('KEY_ALIAS') && props.containsKey('KEY_PASSWORD')) {
+            android.signingConfigs.release.storeFile = file(props['STORE_FILE'])
+            android.signingConfigs.release.storePassword = props['STORE_PASSWORD']
+            android.signingConfigs.release.keyAlias = props['KEY_ALIAS']
+            android.signingConfigs.release.keyPassword = props['KEY_PASSWORD']
+        } else {
+            println 'signing.properties found but some entries are missing'
+            throw new Exception("signing.properties found but some entries are missing")
+            //android.buildTypes.release.signingConfig = null
+        }
+    }else {
+        println 'signing.properties not found'
+        throw new Exception("signing.properties not found:" + propFile.absolutePath)
+        //android.buildTypes.release.signingConfig = null
+    }
+}
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.2"
+
+    defaultConfig {
+        applicationId "com.gm.androidpack"
+        minSdkVersion 16
+        targetSdkVersion 23
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        release {
+            //这里设置文件签名相关参数宏
+            //在工程根目录或者~/.gradle/下的gradle.properties属性文件中定义
+            storeFile file(MYAPP_RELEASE_STORE_FILE)
+            storePassword MYAPP_RELEASE_STORE_PASSWORD
+            keyAlias MYAPP_RELEASE_KEY_ALIAS
+            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            //注意在这里设置签名，否则设置了签名参数也不会签名
+            signingConfig signingConfigs.release
+        }
+    }
+
+    productFlavors {
+        //测试环境
+        env{}
+
+        //正式环境
+        release_normal{}
+        //release_force{}
+
+        //以company开头 加入不同公司版
+        //在这里我可以更改包名 app在手机中可以和其他flavor编译的app共存
+        company_xnv{
+            applicationId "com.gm.androidpack.xnv"
+        }
+
+        //想要新加入渠道,直接这样添加
+        chanel_baidu{}
+        //360{}
+
+        //所有编译方式BuildType都会遍历flavors
+        productFlavors.all { flavor ->
+
+            //区分环境 ：变量 ENV
+            //可以通过buildConfig，也可以通过resValue
+            if (name.equals("env")){
+                buildConfigField "String", "ENV", "\"development\""
+                resValue "string", "env", "development"
+            }else {
+                buildConfigField "String", "ENV", "\"production\""
+                resValue "string", "env", "production"
+            }
+
+            //当要加入渠道时；例如友盟
+            if (!name.contains("chanel"))
+                flavor.manifestPlaceholders = [UMENG_CHANNEL: "default"]
+            else
+                flavor.manifestPlaceholders = [UMENG_CHANNEL: name]
+
+            //buid自增
+            if (!add_flage ){
+                addBuildNum()
+                add_flage = true;
+            }
+
+            //build自增后 重新赋值 versionname;versionCode
+            versionName getVersionName(versionNum)
+            versionCode getBuildNum()
+        }
+    }
+
+    //输出文件参数设置
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+
+            def outputFile = output.outputFile
+            //只定义release编译方式的apk文件名
+            if (outputFile != null && outputFile.name.endsWith('.apk') && 'release'.equals(variant.buildType.name)) {
+
+                def flavor =  variant.productFlavors[0].name;
+
+                //不同的falvor，定义不同的输出的apk文件名前缀
+                def profix
+                if (flavor.equals("release_normal")){
+                    profix = "gm"
+                } else if (flavor.equals('env')){
+                    profix = "test_gm"
+                }else if (flavor.contains("company_")){
+                    profix = flavor.replace("company_","");
+                }else {
+                    profix = "gm_" + flavor
+                }
+
+                //定义输出apk文件名
+                def fileName = "${profix}_${projectName}_${variant.versionName}.apk".toLowerCase()
+                output.outputFile = new File(outputFile.parent, fileName)
+            }
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+    compile 'com.android.support:appcompat-v7:25.3.1'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    testCompile 'junit:junit:4.12'
+    compile project(':l_pgyupdate')
+}
