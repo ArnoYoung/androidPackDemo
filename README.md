@@ -2,7 +2,7 @@
 [toc]
 ## 简介
 ![3ac8c26a-0fa1-4bc2-b12a-d9c78d7c0a6e.png](http://upload-images.jianshu.io/upload_images/1426260-d3508a9a52638dee.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-以前知道自动化打包，最近仔细研究了下，根据[官方](https://developer.android.com/studio/build/build-variants.html)和一些参考文档，做一下简单的总结，简单做了张图，知识点文章都会介绍到。
+以前了解一些自动化打包，最近要分享，根据[官方](https://developer.android.com/studio/build/build-variants.html)和一些参考文档，做一下简单的总结，简单做了张图，知识点文章都会介绍到。
 
 ### build生成apk方式
 1.android sutidio 菜单栏，build-》generate signed apk 随后可以选择编译方式和产品风味  
